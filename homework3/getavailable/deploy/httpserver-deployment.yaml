@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpserver-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpserver
+  template:
+    metadata:
+      labels:
+        app: httpserver
+    spec:
+#      # 如果是镜像位于私有仓库，则需要 imagePullSecrets
+#      # dockerhub会提供一个秘钥，需要将秘钥转化成 Secret
+#      imagePullSecrets:
+#        - name: cloudnative
+      containers:
+        - name: httpserver
+          # 这里将镜像放在公共仓库
+          image: kenga01/httpserver:v0.0.2
+          ports:
+            - containerPort: 80
+          # 3. QoS
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: 1
+            requests:
+              memory: 256Mi
+              cpu: 100m

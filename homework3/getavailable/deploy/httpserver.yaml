@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: httpserver
+  name: httpserver
+spec:
+  replicas: 1
+  # revisionHistoryLimit 用于节省 etcd 的存储空间
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: httpserver
+  template:
+    metadata:
+      labels:
+        app: httpserver
+    spec:
+      #      # 如果是镜像位于私有仓库，则需要 imagePullSecrets
+      #      # dockerhub会提供一个秘钥，需要将秘钥转化成 Secret
+      #      imagePullSecrets:
+      #        - name: cloudnative
+      containers:
+        - env:
+            - name: httpport
+              valueFrom:
+                configMapKeyRef:
+                  key: httpport
+                  name: myenv
+          name: httpserver
+          # 这里将镜像放在公共仓库
+          image: kenga01/httpserver:v0.0.2
+          ports:
+            - containerPort: 80
+          imagePullPolicy: IfNotPresent
+          # 1. 优雅启动
+          readinessProbe:
+            httpGet:
+              ### this probe will fail with 404 error code
+              ### only httpcode between 200-400 is retreated as success
+              path: /healthz
+              port: 80
+              initialDelaySeconds: 5
+              successThreshold: 1
+          # 2. 探活
+          livenessProbe:
+            httpGet:
+              ### this probe will fail with 404 error code
+              ### only httpcode between 200-400 is retreated as success
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            successThreshold: 1
+          # 优雅终止（若 terminationGracePeriodSeconds 时间内还未完全停止，则发送 SIGKILL 信号强制杀死进程）
+          # terminationGracePeriodSeconds 默认 30s
+          # SIGTERM // 15 (i.e. kill -15)
+          # SIGKILL // 9 (i.e. kill -9)
+          terminationGracePeriodSeconds: 60
+          # 3. QoS
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: 1
+            requests:
+              memory: 128Mi
+              cpu: 700m
